@@ -1,19 +1,9 @@
 @Grab('com.xlson.groovycsv:groovycsv:1.3')
-import static com.xlson.groovycsv.CsvParser.parseCsv
-
 import org.forgerock.openicf.connectors.groovy.OperationType
 import org.forgerock.openicf.connectors.groovy.ScriptedConfiguration
 import org.identityconnectors.common.logging.Log
-import org.identityconnectors.framework.common.objects.Attribute
-import org.identityconnectors.framework.common.objects.AttributesAccessor
-import org.identityconnectors.framework.common.objects.ObjectClass
-import org.identityconnectors.framework.common.objects.OperationOptions
-import org.identityconnectors.framework.common.objects.Uid
 import org.identityconnectors.framework.common.exceptions.ConnectorException
-
-import java.nio.channels.FileLock
-import java.nio.channels.FileChannel
-import java.nio.channels.OverlappingFileLockException
+import org.identityconnectors.framework.common.objects.*
 
 def operation = operation as OperationType
 def configuration = configuration as ScriptedConfiguration

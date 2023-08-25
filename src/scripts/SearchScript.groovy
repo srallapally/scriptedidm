@@ -4,28 +4,15 @@
         @Grab(group='org.slf4j', module='slf4j-api', version='1.6.1'),
         @Grab(group='ch.qos.logback', module='logback-classic', version='0.9.28')
 ])
-import net.sf.json.JSONNull
-import net.sf.json.groovy.JsonSlurper
-
-import org.slf4j.*
-import sun.nio.ch.KQueueSelectorProvider
-import wslite.rest.ContentType
-import wslite.rest.RESTClient
-
 import org.forgerock.openicf.connectors.groovy.OperationType
 import org.forgerock.openicf.connectors.groovy.ScriptedConfiguration
 import org.identityconnectors.common.logging.Log
 import org.identityconnectors.framework.common.objects.ObjectClass
 import org.identityconnectors.framework.common.objects.OperationOptions
-import org.forgerock.openicf.connectors.groovy.MapFilterVisitor
-import org.identityconnectors.framework.common.objects.filter.Filter
 import org.identityconnectors.framework.common.objects.filter.EqualsFilter
+import org.identityconnectors.framework.common.objects.filter.Filter
 import org.identityconnectors.framework.common.objects.filter.OrFilter
-import org.identityconnectors.framework.common.objects.filter.FilterBuilder
-import org.identityconnectors.framework.common.objects.filter.StartsWithFilter
-import org.identityconnectors.framework.common.exceptions.ConnectorException
-import org.identityconnectors.framework.common.FrameworkUtil
-
+import wslite.rest.RESTClient
 
 def operation = operation as OperationType
 def configuration = configuration as ScriptedConfiguration
