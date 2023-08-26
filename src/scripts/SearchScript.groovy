@@ -4,15 +4,27 @@
         @Grab(group='org.slf4j', module='slf4j-api', version='1.6.1'),
         @Grab(group='ch.qos.logback', module='logback-classic', version='0.9.28')
 ])
+import net.sf.json.JSONNull
+import net.sf.json.groovy.JsonSlurper
+
+import org.slf4j.*
+import wslite.rest.ContentType
+import wslite.rest.RESTClient
+
 import org.forgerock.openicf.connectors.groovy.OperationType
 import org.forgerock.openicf.connectors.groovy.ScriptedConfiguration
 import org.identityconnectors.common.logging.Log
 import org.identityconnectors.framework.common.objects.ObjectClass
 import org.identityconnectors.framework.common.objects.OperationOptions
-import org.identityconnectors.framework.common.objects.filter.EqualsFilter
+import org.forgerock.openicf.connectors.groovy.MapFilterVisitor
 import org.identityconnectors.framework.common.objects.filter.Filter
+import org.identityconnectors.framework.common.objects.filter.EqualsFilter
 import org.identityconnectors.framework.common.objects.filter.OrFilter
-import wslite.rest.RESTClient
+import org.identityconnectors.framework.common.objects.filter.FilterBuilder
+import org.identityconnectors.framework.common.objects.filter.StartsWithFilter
+import org.identityconnectors.framework.common.exceptions.ConnectorException
+import org.identityconnectors.framework.common.FrameworkUtil
+
 
 def operation = operation as OperationType
 def configuration = configuration as ScriptedConfiguration
@@ -63,12 +75,14 @@ switch (objectClass) {
         if(filter != null){
             def username = null
             if (filter instanceof EqualsFilter){
-                //println "#### EqualsFilter ####"
+                println "#### EqualsFilter ####"
                 def attrName = ((EqualsFilter) filter).getAttribute()
                 if (attrName.is(Uid.NAME) || attrName.is(Name.NAME)) {
                     username = ((EqualsFilter) filter).getAttribute().getValue().get(0)
                 }
                 path = path + "&_queryFilter=userName%20eq%20%22"+username+"%22"
+                //log.debug(path)
+                println path
                 get = true
             } else if (filter instanceof OrFilter){
                 //println "#### OrFilter ####"
@@ -110,13 +124,15 @@ switch (objectClass) {
             get == true) {
            //println "Returning search results "
            response.json.result.each { item ->
-           def roleList = []
+               def roleList = []
                //println "##########" + item.userName
                //println "Effective Roles: " + item.effectiveRoles
-               item.effectiveRoles.each { role ->
+               //item.effectiveRoles.each { role ->
                    //println "Role:" + role._refResourceId
-                   roleList.add(role._refResourceId)
-               }   
+                 //  roleList.add(role._refResourceId)
+               //}
+                println " Getting user's role memberships for "+item.userName
+                roleList = getUserRoleIds(item.userName)   
                 handler {
                   uid item.userName
                   id item.userName
@@ -127,7 +143,7 @@ switch (objectClass) {
                   attribute 'roles', roleList
                }
            }
-           println " Returning from script : "+ currentPagedResultsCookie + " and index = " + index
+           //println " Returning from script : "+ currentPagedResultsCookie + " and index = " + index
         }
         return new SearchResult(currentPagedResultsCookie, index)
         break
@@ -176,7 +192,7 @@ switch (objectClass) {
         else {
             path = path + "&_queryFilter=true"
         }        
-        println "Query String: " + path
+        println "Group Query String: " + path
         def resources = null
         def index = -1
       
@@ -213,27 +229,6 @@ switch (objectClass) {
         break
 }
 
-/**
- *
- * @param epath
- * @param pageCookie
- * @return
- */
-def getObjects(RESTClient client, String path, String pageCookie){
-    println path
-    if(pageCookie != null){
-        path = path + "&_pagedResultsCookie=" + pageCookie
-    }
-    def response = client.get(path: path,
-            headers: ['X-OpenIDM-Username': 'openidm-admin',
-                      "X-OpenIDM-Password": 'openidm-admin',
-                      "Accept-API-Version": "resource=1.0"])
-    println response
-    return response
-}
-
-
-
 def getOrFilters(OrFilter filter) {
     def ids = []
     Filter left = filter.getLeft()
@@ -252,4 +247,50 @@ def getOrFilters(OrFilter filter) {
     }
     return ids
 
+}
+def getUserId(String userName){
+    RESTClient client = null
+    String IDMURL = 'http://localhost:8080/openidm'
+    client = new RESTClient(IDMURL)
+    client.httpClient.sslTrustAllCerts = true
+    def path = "/managed/user?_sortKeys=userName&_fields=*" + "&_queryFilter=userName+eq+%22" + userName + "%22"
+    def response = client.get(path: path,
+            headers: ['X-OpenIDM-Username': 'openidm-admin',
+                      "X-OpenIDM-Password": 'openidm-admin',
+                      "Accept-API-Version": "resource=1.0"])
+    def roleList = []
+    def userid = null
+    response.json.result.each { item ->
+        userid = item._id
+    }
+    println "userid: " + userid
+    return userid
+}
+
+def getUserRoleIds(String userName){
+    RESTClient client = null
+    String IDMURL = 'http://localhost:8080/openidm'
+    client = new RESTClient(IDMURL)
+    client.httpClient.sslTrustAllCerts = true
+    def roleIds = []
+    def userid = null
+    println " Getting user "+userName+" user id"
+    userid = getUserId(userName)
+    if(userid) {
+        def path = "managed/user/"+userid+"/roles?_queryFilter=true&_fields=_ref/*,name"
+        println "getUserRoleIds:"+path
+        def response = client.get(path: path,
+            headers: ['X-OpenIDM-Username': 'openidm-admin',
+                      "X-OpenIDM-Password": 'openidm-admin',
+                      "Accept-API-Version": "resource=1.0"])
+    
+        response.json.result.each { item ->
+        //println "Adding "+item._id + " with name " + item.name
+         roleIds.add(item._refResourceId)
+        }
+        return roleIds
+    } else {
+        println "User not found "+userName
+        return null
+    }
 }
