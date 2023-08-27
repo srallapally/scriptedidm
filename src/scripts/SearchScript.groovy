@@ -4,27 +4,17 @@
         @Grab(group='org.slf4j', module='slf4j-api', version='1.6.1'),
         @Grab(group='ch.qos.logback', module='logback-classic', version='0.9.28')
 ])
-import net.sf.json.JSONNull
-import net.sf.json.groovy.JsonSlurper
-
-import org.slf4j.*
-import wslite.rest.ContentType
-import wslite.rest.RESTClient
+import groovy.transform.Field
 
 import org.forgerock.openicf.connectors.groovy.OperationType
 import org.forgerock.openicf.connectors.groovy.ScriptedConfiguration
 import org.identityconnectors.common.logging.Log
 import org.identityconnectors.framework.common.objects.ObjectClass
 import org.identityconnectors.framework.common.objects.OperationOptions
-import org.forgerock.openicf.connectors.groovy.MapFilterVisitor
-import org.identityconnectors.framework.common.objects.filter.Filter
 import org.identityconnectors.framework.common.objects.filter.EqualsFilter
+import org.identityconnectors.framework.common.objects.filter.Filter
 import org.identityconnectors.framework.common.objects.filter.OrFilter
-import org.identityconnectors.framework.common.objects.filter.FilterBuilder
-import org.identityconnectors.framework.common.objects.filter.StartsWithFilter
-import org.identityconnectors.framework.common.exceptions.ConnectorException
-import org.identityconnectors.framework.common.FrameworkUtil
-
+import wslite.rest.RESTClient
 
 def operation = operation as OperationType
 def configuration = configuration as ScriptedConfiguration
@@ -40,17 +30,17 @@ def resultCount = 0
  *  TODO: Move IDM Credentials to Configuration Property Bag
  *  TODO: Move IDM URL to Configuration Property Bag
  */
-final OPENIDM_USER = null
-final OPENIDM_PASSWORD = null
-final IDMURL = 'http://localhost:8080/openidm'
+@Field final OPENIDM_USER = null
+@Field final OPENIDM_PASSWORD = null
+@Field final IDMURL = 'http://localhost:8080/openidm'
 
 
 RESTClient client = null
 client = new RESTClient(IDMURL)
 client.httpClient.sslTrustAllCerts = true
 
-println "########## Entering " + operation + " Script"
-println "########## ObjectClass: " + objectClass.objectClassValue
+println " Entering " + operation + " Script"
+println "ObjectClass: " + objectClass.objectClassValue
 def query = [:]
 def queryFilter = 'true'
 def get = false
@@ -280,42 +270,36 @@ def getOrFilters(OrFilter filter) {
  */
 def getUserId(String userName){
     RESTClient client = null
-    String IDMURL = 'http://localhost:8080/openidm'
     client = new RESTClient(IDMURL)
     client.httpClient.sslTrustAllCerts = true
     def path = "/managed/user?_sortKeys=userName&_fields=*" + "&_queryFilter=userName+eq+%22" + userName + "%22"
     def response = client.get(path: path,
-            headers: ['X-OpenIDM-Username': 'openidm-admin',
-                      "X-OpenIDM-Password": 'openidm-admin',
+            headers: ['X-OpenIDM-Username': OPENIDM_USER,
+                      "X-OpenIDM-Password": OPENIDM_PASSWORD,
                       "Accept-API-Version": "resource=1.0"])
     def roleList = []
     def userid = null
     response.json.result.each { item ->
         userid = item._id
     }
-    println "userid: " + userid
     return userid
 }
 
 def getUserRoleIds(String userName){
     RESTClient client = null
-    String IDMURL = 'http://localhost:8080/openidm'
     client = new RESTClient(IDMURL)
     client.httpClient.sslTrustAllCerts = true
     def roleIds = []
     def userid = null
-    println " Getting user "+userName+" user id"
     userid = getUserId(userName)
     if(userid) {
         def path = "managed/user/"+userid+"/roles?_queryFilter=true&_fields=_ref/*,name"
-        println "getUserRoleIds:"+path
         def response = client.get(path: path,
-            headers: ['X-OpenIDM-Username': 'openidm-admin',
-                      "X-OpenIDM-Password": 'openidm-admin',
+            headers: ['X-OpenIDM-Username': OPENIDM_USER,
+                      "X-OpenIDM-Password": OPENIDM_PASSWORD,
                       "Accept-API-Version": "resource=1.0"])
     
         response.json.result.each { item ->
-        //println "Adding "+item._id + " with name " + item.name
          roleIds.add(item._refResourceId)
         }
         return roleIds
