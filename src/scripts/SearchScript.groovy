@@ -40,9 +40,9 @@ def resultCount = 0
  *  TODO: Move IDM Credentials to Configuration Property Bag
  *  TODO: Move IDM URL to Configuration Property Bag
  */
-def OPENIDM_USER = null
-def OPENIDM_PASSWORD = null
-String IDMURL = 'http://localhost:8080/openidm'
+final OPENIDM_USER = null
+final OPENIDM_PASSWORD = null
+final IDMURL = 'http://localhost:8080/openidm'
 
 
 RESTClient client = null
@@ -90,7 +90,8 @@ switch (objectClass) {
             def username = null
             if (filter instanceof EqualsFilter){
                 def attrName = ((EqualsFilter) filter).getAttribute()
-                // In this specific connector, uid and id are the same so we can use either
+                // In this specific connector, uid and id are the same for the __ACCOUNT__ Objectclass
+                // so we can use either
                 // See __GROUP__, where uid and id are different, for an example of how to
                 // handle the attributes separately
                 if (attrName.is(Uid.NAME) || attrName.is(Name.NAME)) {
@@ -165,9 +166,8 @@ switch (objectClass) {
         return new SearchResult(currentPagedResultsCookie, index)
         break
     case objectClass.GROUP:
-       //def path = "roletype%20eq%20%22Entitlement%22&fields=*"
+
         def path = "/managed/role?_sortKeys=name&field=*"
-        //&_queryFilter=roletype%20eq%20%22Entitlement%22&_fields=*"
         query.each {key, value ->
             if(value){
                 path = path + "&"+key+"="+value
@@ -175,14 +175,19 @@ switch (objectClass) {
         }
         path = path + "&_totalPagedResultsPolicy=ESTIMATE"
         if(filter != null){
+            /**
+             * In our configuration, roleName and id are different.
+             * They are different because Role is a NAO and we want to store the ids
+             * but display the name. As a result, IDM can send either __UID__ or __NAME__
+             */
             def rolename = null
             if (filter instanceof EqualsFilter){
-                //println "#### EqualsFilter ####"
+
                 def attrName = ((EqualsFilter) filter).getAttribute()
-                println "attrName: " + attrName
                 if (attrName.is(Name.NAME)) {
                     rolename = ((EqualsFilter) filter).getAttribute().getValue().get(0)
-                    rolename = java.net.URLEncoder.encode(rolename, "UTF-8") 
+                    rolename = java.net.URLEncoder.encode(rolename, "UTF-8")
+                    // We are looking for Roles where the roletype, a custom MO attribute, is Entitlement
                     path = path + "&_queryFilter=roletype%20eq%20%22Entitlement%22%20and%20name%20eq%20%22"+rolename+"%22"
                 } else if(attrName.is(Uid.NAME)){
                     rolename = ((EqualsFilter) filter).getAttribute().getValue().get(0)
@@ -191,9 +196,7 @@ switch (objectClass) {
                 }
                 get = true
             } else if (filter instanceof OrFilter){
-                //println "#### OrFilter ####"
                 def keys = getOrFilters((OrFilter)filter)
-               // println "#### keys ####" + keys
                 def s = null
                 keys.each { key ->
                     if(s) {
@@ -214,8 +217,8 @@ switch (objectClass) {
         def index = -1
       
         def response = client.get(path: path,
-                  headers: ['X-OpenIDM-Username': 'openidm-admin',
-                          "X-OpenIDM-Password": 'openidm-admin',
+                  headers: ['X-OpenIDM-Username': OPENIDM_USER,
+                          "X-OpenIDM-Password": OPENIDM_PASSWORD,
                           "Accept-API-Version": "resource=1.0"])
 
         resultCount = response.json.resultCount.toInteger()  
@@ -245,7 +248,11 @@ switch (objectClass) {
     default:
         break
 }
-
+/**
+ * Helper method to get the list of search values from an OrFilter
+ * @param filter
+ * @return
+ */
 def getOrFilters(OrFilter filter) {
     def ids = []
     Filter left = filter.getLeft()
@@ -265,6 +272,12 @@ def getOrFilters(OrFilter filter) {
     return ids
 
 }
+/**
+ *  We need the user id and not the userName to get the user's role memberships
+ *  https://backstage.forgerock.com/docs/idm/7/objects-guide/roles-over-rest.html is incorrect
+ * @param userName
+ * @return
+ */
 def getUserId(String userName){
     RESTClient client = null
     String IDMURL = 'http://localhost:8080/openidm'
