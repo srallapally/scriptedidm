@@ -36,9 +36,15 @@ def pageSize = 10
 def currentPagedResultsCookie = null
 def resultCount = 0
 
-def openidm_user = null
-def openidm_password = null
+/**
+ *  TODO: Move IDM Credentials to Configuration Property Bag
+ *  TODO: Move IDM URL to Configuration Property Bag
+ */
+def OPENIDM_USER = null
+def OPENIDM_PASSWORD = null
 String IDMURL = 'http://localhost:8080/openidm'
+
+
 RESTClient client = null
 client = new RESTClient(IDMURL)
 client.httpClient.sslTrustAllCerts = true
@@ -49,7 +55,6 @@ def query = [:]
 def queryFilter = 'true'
 def get = false
 
-//query['_queryFilter'] = queryFilter
 
 if (null != options.pageSize) {
     query['_pageSize'] = options.pageSize
@@ -64,31 +69,43 @@ if (null != options.pageSize) {
 }
 switch (objectClass) {
     case objectClass.ACCOUNT:
-        //def path = "/managed/user?_sortKeys=userName&_fields=userName,givenName,sn,mail"
+        /**
+         * TODO: Move All IDM URLs to another script
+         */
         def path = "/managed/user?_sortKeys=userName&_fields=*"
+        // Loop through the query and add the query parameters to the path
         query.each {key, value ->
             if(value){
                 path = path + "&"+key+"="+value
             }
         }
+        // I am not sure if totalPagedResultsPolicy actually works but following docs
         path = path + "&_totalPagedResultsPolicy=ESTIMATE"
+
+        /**
+         * Per the IDM Gurus, connector must implement Equals and Or Filters, especially
+         * if we want the recon UI to work
+         */
         if(filter != null){
             def username = null
             if (filter instanceof EqualsFilter){
-                println "#### EqualsFilter ####"
                 def attrName = ((EqualsFilter) filter).getAttribute()
+                // In this specific connector, uid and id are the same so we can use either
+                // See __GROUP__, where uid and id are different, for an example of how to
+                // handle the attributes separately
                 if (attrName.is(Uid.NAME) || attrName.is(Name.NAME)) {
                     username = ((EqualsFilter) filter).getAttribute().getValue().get(0)
                 }
                 path = path + "&_queryFilter=userName%20eq%20%22"+username+"%22"
-                //log.debug(path)
-                println path
                 get = true
             } else if (filter instanceof OrFilter){
-                //println "#### OrFilter ####"
+                // IDM issues an or query which looks like this:
+                // __UID__ eq "bjensen" or __UID__ eq "jdoe"....
+               // getOrFilters is a helper method that will return a list of search values
                 def keys = getOrFilters((OrFilter)filter)
-               // println "#### keys ####" + keys
+
                 def s = null
+                // Loop through the list of search values and build the query string
                 keys.each { key ->
                     if(s) {
                         s = s + "or%20userName%20eq%20%22"+key+"%22%20"
@@ -103,35 +120,36 @@ switch (objectClass) {
         else {
             path = path + "&_queryFilter=true"
         }        
-        //println "Query String: " + path
+
         def resources = null
         def index = -1
+
+        // At this point, we will either fetch 1 or a list
       
         def response = client.get(path: path,
-                  headers: ['X-OpenIDM-Username': 'openidm-admin',
-                          "X-OpenIDM-Password": 'openidm-admin',
+                  headers: ['X-OpenIDM-Username': OPENIDM_USER,
+                          "X-OpenIDM-Password": OPENIDM_PASSWORD,
                           "Accept-API-Version": "resource=1.0"])
+        /**
+         * We need to check the resultCount to see if we need to page through the results
+         * and also to handle the last page of results
+         */
         resultCount = response.json.resultCount.toInteger()  
         if(resultCount >= pageSize ){
               currentPagedResultsCookie = response.json.pagedResultsCookie.toString()
               index = response.json.remainingPagedResults
 
         } else {
+             // in the last page of results, we need to reset the cookie and index
               currentPagedResultsCookie = null
               index = -1
         }
+        // either we have a list of results or we are getting a single result
+        // Not sure if we need this condition
         if( (response.json.pagedResultsCookie != null && response.json.resultCount.toInteger() > 0) ||
             get == true) {
-           //println "Returning search results "
            response.json.result.each { item ->
                def roleList = []
-               //println "##########" + item.userName
-               //println "Effective Roles: " + item.effectiveRoles
-               //item.effectiveRoles.each { role ->
-                   //println "Role:" + role._refResourceId
-                 //  roleList.add(role._refResourceId)
-               //}
-                println " Getting user's role memberships for "+item.userName
                 roleList = getUserRoleIds(item.userName)   
                 handler {
                   uid item.userName
@@ -143,7 +161,6 @@ switch (objectClass) {
                   attribute 'roles', roleList
                }
            }
-           //println " Returning from script : "+ currentPagedResultsCookie + " and index = " + index
         }
         return new SearchResult(currentPagedResultsCookie, index)
         break
