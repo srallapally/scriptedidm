@@ -4,20 +4,15 @@
         @Grab(group='org.slf4j', module='slf4j-api', version='1.6.1'),
         @Grab(group='ch.qos.logback', module='logback-classic', version='0.9.28')
 ])
-import net.sf.json.JSONNull
-import net.sf.json.groovy.JsonSlurper
+import groovy.transform.Field
 
-import org.slf4j.*
-import wslite.rest.ContentType
-import wslite.rest.RESTClient
 import org.forgerock.openicf.connectors.groovy.OperationType
 import org.forgerock.openicf.connectors.groovy.ScriptedConfiguration
 import org.identityconnectors.common.logging.Log
-import org.identityconnectors.framework.common.objects.Attribute
-import org.identityconnectors.framework.common.objects.AttributesAccessor
+import org.identityconnectors.framework.common.exceptions.ConnectorException
 import org.identityconnectors.framework.common.objects.ObjectClass
 import org.identityconnectors.framework.common.objects.OperationOptions
-import org.identityconnectors.framework.common.exceptions.ConnectorException
+import wslite.rest.RESTClient
 
 def operation = operation as OperationType
 def configuration = configuration as ScriptedConfiguration
@@ -26,9 +21,14 @@ def objectClass = objectClass as ObjectClass
 def options = options as OperationOptions
 def log = log as Log
 
-def openidm_user = null
-def openidm_password = null
-String IDMURL = 'http://localhost:8080/openidm'
+/**
+ *  TODO: Move IDM Credentials to Configuration Property Bag
+ *  TODO: Move IDM URL to Configuration Property Bag
+ */
+@Field final OPENIDM_USER = null
+@Field final OPENIDM_PASSWORD = null
+@Field final IDMURL = 'http://localhost:8080/openidm'
+
 RESTClient client = null
 client = new RESTClient(IDMURL)
 client.httpClient.sslTrustAllCerts = true

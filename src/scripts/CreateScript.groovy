@@ -9,6 +9,8 @@ import org.identityconnectors.framework.common.objects.OperationOptions
 import org.identityconnectors.framework.common.objects.Uid
 import org.identityconnectors.framework.common.exceptions.ConnectorException
 
+import groovy.transform.Field
+
 def operation = operation as OperationType
 def configuration = configuration as ScriptedConfiguration
 
@@ -17,6 +19,14 @@ def options = options as OperationOptions
 def createAttributes = new AttributesAccessor(attributes as Set<Attribute>)
 def uid = id as String
 def log = log as Log
+
+/**
+ *  TODO: Move IDM Credentials to Configuration Property Bag
+ *  TODO: Move IDM URL to Configuration Property Bag
+ */
+@Field final OPENIDM_USER = null
+@Field final OPENIDM_PASSWORD = null
+@Field final IDMURL = 'http://localhost:8080/openidm'
 
 switch (operation) {
     case OperationType.CREATE:
